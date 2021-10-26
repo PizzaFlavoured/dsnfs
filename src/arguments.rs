@@ -6,24 +6,24 @@ use clap::{
 	SubCommand,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ProgramMode {
 	Receiving(ReceivingModeData),
 	Sending(SendingModeData),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReceivingModeData {
 	destination: PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SendingModeData {
 	address: IpAddr,
 	files: Vec<PathBuf>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProgramConfig {
 	port: u16,
 	mode: ProgramMode,
@@ -42,7 +42,7 @@ impl ProgramConfig {
 			let files = m
 				.values_of("files")
 				.unwrap()
-				.map(|s| PathBuf::from(s))
+				.map(PathBuf::from)
 				.collect::<Vec<PathBuf>>();
 
 			return ProgramConfig {
@@ -167,7 +167,7 @@ fn validate_address(s: String) -> Result<(), String> {
 fn validate_port(s: String) -> Result<(), String> {
 	let as_n: Result<usize, _> = s.parse();
 
-	return match as_n {
+	match as_n {
 		Ok(n) => {
 			if n > 2 ^ 16 {
 				Ok(())
@@ -175,6 +175,6 @@ fn validate_port(s: String) -> Result<(), String> {
 				Err("Port is out of bounds (0-65535)".to_owned())
 			}
 		}
-		Err(_) => return Err("Invalid port".to_owned()),
-	};
+		Err(_) => Err("Invalid port".to_owned()),
+	}
 }
