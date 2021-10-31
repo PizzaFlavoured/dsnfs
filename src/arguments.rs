@@ -79,7 +79,7 @@ impl ProgramConfig {
 }
 
 impl SendingModeData {
-	pub fn get_address(self) -> IpAddr {
+	pub fn get_address(&self) -> IpAddr {
 		self.address
 	}
 	pub fn get_files(self) -> Vec<PathBuf> {
