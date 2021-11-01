@@ -17,9 +17,10 @@ pub enum Packet {
 pub fn send(cfg: ProgramConfig) -> Result<()> {
 	let port = &cfg.get_port();
 
-	let (mut stream, data) = match cfg.get_mode() {
+	let (mut stream, chunk_size, data) = match cfg.get_mode() {
 		ProgramMode::Sending(data) => (
 			TcpStream::connect(format!("{}:{}", &data.get_address(), &port))?,
+			data.get_chunk_size(),
 			data,
 		),
 		ProgramMode::Receiving(_) => panic!("Unreachable code."),
@@ -56,7 +57,7 @@ pub fn send(cfg: ProgramConfig) -> Result<()> {
 		);
 
 		// Data
-		let mut chunks = handle.as_slice().chunks_exact(256);
+		let mut chunks = handle.as_slice().chunks_exact(chunk_size);
 		for chunk in &mut chunks {
 			send_packet(&mut stream, Packet::Data, chunk);
 		}

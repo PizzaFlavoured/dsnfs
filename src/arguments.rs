@@ -21,6 +21,7 @@ pub struct ReceivingModeData {
 pub struct SendingModeData {
 	address: IpAddr,
 	files: Vec<PathBuf>,
+	chunk_size: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -33,8 +34,8 @@ impl ProgramConfig {
 	pub fn from_matches() -> ProgramConfig {
 		let matches = matches();
 
-		// .unwrap()-ing is fine because all of these are required
-		// and were were validated beforehand
+		// .unwrap()-ing is fine because all of them are either required
+		// or were were validated beforehand
 
 		if let Some(m) = matches.subcommand_matches("send") {
 			let address = m.value_of("address").unwrap();
@@ -44,12 +45,14 @@ impl ProgramConfig {
 				.unwrap()
 				.map(PathBuf::from)
 				.collect::<Vec<PathBuf>>();
+			let chunk_size = m.value_of("chunk-size").or(Some("256")).unwrap();
 
 			return ProgramConfig {
 				port: port.parse().unwrap(),
 				mode: ProgramMode::Sending(SendingModeData {
 					address: address.parse().unwrap(),
 					files,
+					chunk_size: chunk_size.parse().unwrap(),
 				}),
 			};
 		}
@@ -85,6 +88,9 @@ impl SendingModeData {
 	pub fn get_files(self) -> Vec<PathBuf> {
 		self.files
 	}
+	pub fn get_chunk_size(&self) -> usize {
+		self.chunk_size
+	}
 }
 
 impl ReceivingModeData {
@@ -119,6 +125,12 @@ fn matches<'a>() -> ArgMatches<'a> {
 						.validator(validate_port)
 						.help("Port to send the files to on the target machine"),
 				)
+				.arg(Arg::with_name("chunk-size")
+					.takes_value(true)
+					.required(false)
+					.short("s")
+					.validator(validate_chunk_size)
+					.help("Size, in bytes, of the chunks each file will be split into prior to sending."))
 				.arg(
 					Arg::with_name("files")
 						.takes_value(true)
@@ -176,5 +188,12 @@ fn validate_port(s: String) -> Result<(), String> {
 			}
 		}
 		Err(_) => Err("Invalid port".to_owned()),
+	}
+}
+
+fn validate_chunk_size(s: String) -> Result<(), String> {
+	match s.parse::<usize>() {
+		Ok(_) => Ok(()),
+		Err(s) => Err(s.to_string()),
 	}
 }
