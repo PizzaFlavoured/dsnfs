@@ -2,9 +2,7 @@
 name = "dsnfs"
 version = "0.1.0"
 edition = "2021"
-description = "Sends a file to another machine, running this same program, via the network."
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Dead Simple Network File Sender (wherein the simplicity goes both ways - implementation and usability)"
 
 [dependencies]
 clap = "^2.33.3"
