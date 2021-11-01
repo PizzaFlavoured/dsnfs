@@ -4,6 +4,7 @@ use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 
 use crate::arguments::{ProgramConfig, ProgramMode};
+use crate::sender::{Packet, PacketType};
 
 // TODO: Figure IPv6 out?
 pub fn listen(cfg: ProgramConfig) {
@@ -61,7 +62,7 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) {
 
 	println!(
 		"filename: {:?}",
-		std::str::from_utf8(&filename).expect("Invalid filename received.")
+		std::str::from_utf8(&filename).expect("Error: invalid filename.")
 	);
 
 	let mut buffer = Vec::<u8>::new();
@@ -78,4 +79,23 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) {
 		buffer,
 	)
 	.unwrap();
+}
+
+fn read_packet(stream: &mut TcpStream) -> Packet {
+	let mut t = [0 as u8; 1];
+	let mut len = [0 as u8; 1];
+	stream
+		.read_exact(&mut t)
+		.expect("Error: could not read the packet type.");
+	stream
+		.read_exact(&mut len)
+		.expect("Error: could not read the packet length.");
+	let t = PacketType::from_u8(t[0]);
+
+	let mut data = Vec::<u8>::with_capacity(len[0] as usize);
+	stream
+		.read_exact(&mut data)
+		.expect("Error: could not read the packet data.");
+
+	Packet::new(t, &data)
 }

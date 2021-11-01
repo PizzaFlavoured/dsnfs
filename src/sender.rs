@@ -1,15 +1,54 @@
 use std::fs;
 use std::io::Write;
 use std::net::TcpStream;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::arguments::{ProgramConfig, ProgramMode};
 
 #[repr(u8)]
-pub enum Packet {
-	Data = 0,
-	DataEnd = 1,
-	Name = 2,
+pub enum PacketType {
+	Data = 1,
+	DataEnd = 2,
+	Name = 3,
+}
+impl PacketType {
+	// Not a fan of doing this but it's better than adding a whole dependency
+	// just for one enum
+	pub fn from_u8(v: u8) -> PacketType {
+		match v {
+			1 => PacketType::Data,
+			2 => PacketType::DataEnd,
+			3 => PacketType::Name,
+			_ => panic!("Error: invalid packet type."),
+		}
+	}
+}
+
+pub struct Packet {
+	packet: Vec<u8>,
+}
+impl Packet {
+	pub fn new(t: PacketType, contents: &[u8]) -> Packet {
+		let mut p = Vec::<u8>::with_capacity(contents.len() + 2);
+		let len = contents.len();
+		p.push(t as u8);
+		p.push(len as u8);
+
+		p[2..].copy_from_slice(contents);
+
+		Packet { packet: p }
+	}
+
+	// Convenience functions
+	pub fn get_type(&self) -> PacketType {
+		PacketType::from_u8(self.packet[0])
+	}
+	pub fn get_data_length(&self) -> u8 {
+		self.packet[1]
+	}
+	pub fn get_data_slice(&self) -> &[u8] {
+		&self.packet[2..]
+	}
 }
 
 pub fn send(cfg: ProgramConfig) {
@@ -36,13 +75,17 @@ pub fn send(cfg: ProgramConfig) {
 					f.file_name().unwrap()
 				)
 			});
-			if Path::exists(&c) {
-				out.push(c);
+			if c.exists() {
+				if c.is_dir() {
+					panic!("Error: will not try to send directories for security reasons. (Try using `<dir>/*` and your shell should turn that into a list of the files in that directory.)");	
+				} else {
+					out.push(c)
+				}
 			}
 		});
 		out
 	};
-	println!("{:#?}", files);
+	//println!("{:#?}", files);
 
 	files.iter().for_each(|f| {
 		println!("Now sending: {:?}", f.file_name().unwrap());
@@ -51,18 +94,23 @@ pub fn send(cfg: ProgramConfig) {
 		// File name
 		send_packet(
 			&mut stream,
-			Packet::Name,
-			f.file_name().unwrap().to_str().unwrap().as_bytes(),
+			Packet::new(
+				PacketType::Name,
+				f.file_name().unwrap().to_str().unwrap().as_bytes(),
+			),
 		);
 
 		// Data
 		let mut chunks = handle.as_slice().chunks_exact(chunk_size);
 		for chunk in &mut chunks {
-			send_packet(&mut stream, Packet::Data, chunk);
+			send_packet(&mut stream, Packet::new(PacketType::Data, chunk));
 		}
 
 		// Now that the "full packets" have been sent, send the remaining one
-		send_packet(&mut stream, Packet::DataEnd, &chunks.remainder());
+		send_packet(
+			&mut stream,
+			Packet::new(PacketType::DataEnd, &chunks.remainder()),
+		);
 	});
 
 	stream
@@ -70,23 +118,9 @@ pub fn send(cfg: ProgramConfig) {
 		.expect("Error: could not close the stream.");
 }
 
-fn send_packet(stream: &mut TcpStream, t: Packet, contents: &[u8]) {
-	let packet: Vec<u8> = {
-		let len = contents.len();
-		let mut packet = Vec::with_capacity(len + 2);
-
-		packet[0] = t as u8;
-		packet[1] = len as u8;
-
-		for i in 0..len {
-			packet[i + 2] = contents[i];
-		}
-
-		packet
-	};
-
+fn send_packet(stream: &mut TcpStream, p: Packet) {
 	stream
-		.write_all(&packet)
+		.write_all(&p.packet)
 		.expect("Error: unable to send packet.");
 	stream.flush().expect("Error: unable to flush stream.");
 }

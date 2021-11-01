@@ -160,7 +160,7 @@ fn matches<'a>() -> ArgMatches<'a> {
 						.index(2)
 						.default_value("")
 						.hide_default_value(true)
-						.help("Where the received files will go. Defaults to the current working directory if not set"),
+						.help("Where the received files will go. Defaults to the current working directory if not set and must be empty."),
 				),
 		)
 		.get_matches()
