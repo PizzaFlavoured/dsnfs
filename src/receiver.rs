@@ -1,17 +1,16 @@
 use std::fs;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 
 use crate::arguments::{ProgramConfig, ProgramMode};
 use crate::sender::{Packet, PacketType};
 
-// TODO: Figure IPv6 out?
 pub fn listen(cfg: ProgramConfig) {
-	let port = &cfg.get_port();
+	let port = cfg.get_port();
 	let (listener, destination) = match cfg.get_mode() {
 		ProgramMode::Receiving(data) => (
-			TcpListener::bind(format!("0.0.0.0:{}", &port))
+			TcpListener::bind(SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)))
 				.expect("Error: could not bind to the port."),
 			{
 				let d = data.get_destination();
@@ -47,7 +46,7 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) {
 		let first_packet = receive_packet(stream);
 		if let PacketType::Terminate = first_packet.get_type() {
 			println!("Got packet to terminate; all files should have been transferred.");
-			std::process::exit(0);
+			break;
 		};
 
 		let filename = {
