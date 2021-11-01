@@ -21,7 +21,7 @@ pub struct ReceivingModeData {
 pub struct SendingModeData {
 	address: IpAddr,
 	files: Vec<PathBuf>,
-	chunk_size: usize,
+	chunk_size: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +88,7 @@ impl SendingModeData {
 	pub fn get_files(self) -> Vec<PathBuf> {
 		self.files
 	}
-	pub fn get_chunk_size(&self) -> usize {
+	pub fn get_chunk_size(&self) -> u16 {
 		self.chunk_size
 	}
 }
@@ -192,7 +192,7 @@ fn validate_port(s: String) -> Result<(), String> {
 }
 
 fn validate_chunk_size(s: String) -> Result<(), String> {
-	match s.parse::<usize>() {
+	match s.parse::<u16>() {
 		Ok(_) => Ok(()),
 		Err(s) => Err(s.to_string()),
 	}

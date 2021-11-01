@@ -42,48 +42,68 @@ pub fn listen(cfg: ProgramConfig) {
 }
 
 fn receive(stream: &mut TcpStream, destination: PathBuf) {
-	println!("{:#?}\n{:#?}", stream, destination);
-
-	let filename = {
-		let mut s = [0 as u8; 256];
-		let mut clean_s = Vec::<u8>::with_capacity(256);
-		stream
-			.read_exact(&mut s)
-			.expect("Failed to read the incoming file\'s name.");
-
-		s.iter().for_each(|b| {
-			if *b != b'\0' {
-				clean_s.push(*b);
+	//println!("{:#?}\n{:#?}", stream, destination);
+	loop {
+		let first_packet = receive_packet(stream);
+		match first_packet.get_type() {
+			PacketType::Terminate => {
+				println!("Got packet to terminate; all files should have been transferred.");
+				std::process::exit(0);
 			}
-		});
+			_ => {}
+		};
 
-		clean_s
-	};
+		let filename = {
+			let p = first_packet;
+			match p.get_type() {
+				PacketType::Name => {}
+				_ => panic!("Error: expected a packet with the filename but got something else."),
+			};
 
-	println!(
-		"filename: {:?}",
-		std::str::from_utf8(&filename).expect("Error: invalid filename.")
-	);
+			let s = std::str::from_utf8(&p.get_data_slice()[..p.get_data_length() as usize])
+				.expect("Error: unable to obtain a filename from the received packet.");
 
-	let mut buffer = Vec::<u8>::new();
-	stream
-		.read_to_end(&mut buffer)
-		.expect("Error: failed to read the file data");
+			s.to_owned()
+		};
+		println!("filename: {:?}", filename);
 
-	println!("{:?}", buffer);
-	fs::write(
-		&destination
-			.canonicalize()
-			.unwrap()
-			.join(PathBuf::from(std::str::from_utf8(&filename).unwrap())),
-		buffer,
-	)
-	.unwrap();
+		let mut handle = fs::File::create(destination.join(&filename))
+			.expect("Error: could not create the file to store the data in.");
+		println!("\nDEBUG: `{:?}`\n", handle);
+
+		// Loop until a packet of type PacketType::DataEnd is received
+		'file: loop {
+			let p = receive_packet(stream);
+			match p.get_type() {
+				PacketType::Data => {
+					handle
+						.write_all(p.get_data_slice())
+						.expect("Error: could not write the received data to the file.");
+					handle
+						.flush()
+						.expect("Error: could not flush the file handle after writing to it.");
+				}
+				PacketType::DataEnd => {
+					handle
+						.write_all(&p.get_data_slice()[..p.get_data_length() as usize])
+						.expect("Error: could not write the received data to the file.");
+					handle
+						.flush()
+						.expect("Error: could not flush the file handle after writing to it.");
+					break 'file;
+				}
+				_ => {
+					panic!("Error: expected a Data(End) packet but got something else instead.")
+				}
+			}
+		}
+		std::thread::sleep(std::time::Duration::from_millis(100));
+	}
 }
 
-fn read_packet(stream: &mut TcpStream) -> Packet {
+fn receive_packet(stream: &mut TcpStream) -> Packet {
 	let mut t = [0 as u8; 1];
-	let mut len = [0 as u8; 1];
+	let mut len = [0 as u8; 2];
 	stream
 		.read_exact(&mut t)
 		.expect("Error: could not read the packet type.");
@@ -91,11 +111,14 @@ fn read_packet(stream: &mut TcpStream) -> Packet {
 		.read_exact(&mut len)
 		.expect("Error: could not read the packet length.");
 	let t = PacketType::from_u8(t[0]);
+	let len = u16::from_be_bytes(len);
 
-	let mut data = Vec::<u8>::with_capacity(len[0] as usize);
+	let mut data: Vec<u8> = vec![0; len as usize];
 	stream
 		.read_exact(&mut data)
 		.expect("Error: could not read the packet data.");
 
-	Packet::new(t, &data)
+	let a = Packet::new(t, &data);
+	println!("Received: {:?}", a);
+	a
 }
