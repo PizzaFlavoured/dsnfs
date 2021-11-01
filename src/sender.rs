@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 use std::fs;
 use std::io::Write;
 use std::net::TcpStream;
@@ -14,12 +12,13 @@ pub enum Packet {
 	Name = 2,
 }
 
-pub fn send(cfg: ProgramConfig) -> Result<()> {
+pub fn send(cfg: ProgramConfig) {
 	let port = &cfg.get_port();
 
 	let (mut stream, chunk_size, data) = match cfg.get_mode() {
 		ProgramMode::Sending(data) => (
-			TcpStream::connect(format!("{}:{}", &data.get_address(), &port))?,
+			TcpStream::connect(format!("{}:{}", &data.get_address(), &port))
+				.expect("Error: could not establish a connection."),
 			data.get_chunk_size(),
 			data,
 		),
@@ -66,7 +65,9 @@ pub fn send(cfg: ProgramConfig) -> Result<()> {
 		send_packet(&mut stream, Packet::DataEnd, &chunks.remainder());
 	});
 
-	Ok(stream.shutdown(std::net::Shutdown::Both)?)
+	stream
+		.shutdown(std::net::Shutdown::Both)
+		.expect("Error: could not close the stream.");
 }
 
 fn send_packet(stream: &mut TcpStream, t: Packet, contents: &[u8]) {

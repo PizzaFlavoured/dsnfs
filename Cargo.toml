@@ -7,5 +7,4 @@ description = "Sends a file to another machine, running this same program, via t
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.44"
 clap = "^2.33.3"

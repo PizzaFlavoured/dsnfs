@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -8,11 +6,13 @@ use std::path::PathBuf;
 use crate::arguments::{ProgramConfig, ProgramMode};
 
 // TODO: Figure IPv6 out?
-pub fn listen(cfg: ProgramConfig) -> Result<()> {
+pub fn listen(cfg: ProgramConfig) {
 	let port = &cfg.get_port();
 	let (listener, destination) = match cfg.get_mode() {
-		ProgramMode::Receiving(data) => {
-			(TcpListener::bind(format!("0.0.0.0:{}", &port)), {
+		ProgramMode::Receiving(data) => (
+			TcpListener::bind(format!("0.0.0.0:{}", &port))
+				.expect("Error: could not bind to the port."),
+			{
 				let mut d = data.get_destination();
 
 				if !d.exists() {
@@ -20,17 +20,19 @@ pub fn listen(cfg: ProgramConfig) -> Result<()> {
 				}
 
 				d
-			})
-		}
+			},
+		),
 		ProgramMode::Sending(_) => panic!("Unreachable code."),
 	};
 
-	let (mut stream, addr) = listener?.accept()?;
+	let (mut stream, addr) = listener
+		.accept()
+		.expect("Error: could not accept the incoming connection.");
 	println!("Connection established with {}.", &addr);
 	receive(&mut stream, destination)
 }
 
-fn receive(stream: &mut TcpStream, destination: PathBuf) -> Result<()> {
+fn receive(stream: &mut TcpStream, destination: PathBuf) {
 	println!("{:#?}\n{:#?}", stream, destination);
 
 	let filename = {
@@ -68,6 +70,4 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) -> Result<()> {
 		buffer,
 	)
 	.unwrap();
-
-	Ok(())
 }
