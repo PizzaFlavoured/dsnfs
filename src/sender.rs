@@ -9,9 +9,9 @@ use crate::arguments::{ProgramConfig, ProgramMode};
 
 #[repr(u8)]
 pub enum Packet {
+	Data = 0,
+	DataEnd = 1,
 	Name = 2,
-	Data = 1,
-	DataEnd = 0,
 }
 
 pub fn send(cfg: ProgramConfig) -> Result<()> {
@@ -56,33 +56,27 @@ pub fn send(cfg: ProgramConfig) -> Result<()> {
 		);
 
 		// Data
-		{
-			let s = handle.as_slice();
-			let last_chunk = s.len() / 256;
-
-			for chunk in 0..last_chunk {
-				send_packet(
-					&mut stream,
-					Packet::Data,
-					&s[chunk * 256..(chunk + 1) * 256],
-				);
-			}
-
-			// Now that the "full packets" have been sent, send the remaining one
-			send_packet(&mut stream, Packet::DataEnd, &s[(last_chunk + 1) * 256..]);
+		let mut chunks = handle.as_slice().chunks_exact(256);
+		for chunk in &mut chunks {
+			send_packet(&mut stream, Packet::Data, chunk);
 		}
+
+		// Now that the "full packets" have been sent, send the remaining one
+		send_packet(&mut stream, Packet::DataEnd, &chunks.remainder());
 	});
 
 	Ok(stream.shutdown(std::net::Shutdown::Both)?)
 }
 
 fn send_packet(stream: &mut TcpStream, t: Packet, contents: &[u8]) {
-	let packet: [u8; 258] = {
-		let mut packet = [0 as u8; 258];
-		packet[0] = t as u8;
-		packet[1] = contents.len() as u8;
+	let packet: Vec<u8> = {
+		let len = contents.len();
+		let mut packet = Vec::with_capacity(len + 2);
 
-		for i in 0..contents.len() {
+		packet[0] = t as u8;
+		packet[1] = len as u8;
+
+		for i in 0..len {
 			packet[i + 2] = contents[i];
 		}
 
@@ -91,6 +85,6 @@ fn send_packet(stream: &mut TcpStream, t: Packet, contents: &[u8]) {
 
 	stream
 		.write_all(&packet)
-		.expect("Error: unable to send a packet.");
+		.expect("Error: unable to send packet.");
 	stream.flush().expect("Error: unable to flush stream.");
 }
