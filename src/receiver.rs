@@ -13,10 +13,18 @@ pub fn listen(cfg: ProgramConfig) {
 			TcpListener::bind(format!("0.0.0.0:{}", &port))
 				.expect("Error: could not bind to the port."),
 			{
-				let mut d = data.get_destination();
+				let d = data.get_destination();
 
-				if !d.exists() {
-					d = std::env::current_dir().expect("Error: no destination given and the current working directory does not exist!");
+				if d.exists() {
+					if let Ok(iter) = d.read_dir() {
+						if iter.count() > 0 {
+							panic!("Error: the target directory must be empty!");
+						}
+					} else {
+						panic!("Error: the destination must be an empty directory.");
+					}
+				} else {
+					panic!("Error: the target directory does not exist.");
 				}
 
 				d
