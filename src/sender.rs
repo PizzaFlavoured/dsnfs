@@ -124,11 +124,11 @@ pub fn send(cfg: ProgramConfig) {
 		// Now that the "full packets" have been sent, send the remaining one
 		send_packet(
 			&mut stream,
-			Packet::new(PacketType::DataEnd, &chunks.remainder()),
+			Packet::new(PacketType::DataEnd, chunks.remainder()),
 		);
 	});
 
-	send_packet(&mut stream, Packet::new(PacketType::Terminate, &[0 as u8]));
+	send_packet(&mut stream, Packet::new(PacketType::Terminate, &[0]));
 
 	stream
 		.shutdown(std::net::Shutdown::Both)

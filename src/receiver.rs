@@ -45,12 +45,9 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) {
 	//println!("{:#?}\n{:#?}", stream, destination);
 	loop {
 		let first_packet = receive_packet(stream);
-		match first_packet.get_type() {
-			PacketType::Terminate => {
-				println!("Got packet to terminate; all files should have been transferred.");
-				std::process::exit(0);
-			}
-			_ => {}
+		if let PacketType::Terminate = first_packet.get_type() {
+			println!("Got packet to terminate; all files should have been transferred.");
+			std::process::exit(0);
 		};
 
 		let filename = {
@@ -102,8 +99,8 @@ fn receive(stream: &mut TcpStream, destination: PathBuf) {
 }
 
 fn receive_packet(stream: &mut TcpStream) -> Packet {
-	let mut t = [0 as u8; 1];
-	let mut len = [0 as u8; 2];
+	let mut t = [0; 1];
+	let mut len = [0; 2];
 	stream
 		.read_exact(&mut t)
 		.expect("Error: could not read the packet type.");
